@@ -144,7 +144,7 @@ async function seedProductionAdmin() {
       first_name: 'Super',
       last_name: 'Admin',
       role: 'admin',
-      is_active: true
+      status: 'active'
     }
 
     const { data: dbData, error: dbError } = await supabase
@@ -166,7 +166,7 @@ async function seedProductionAdmin() {
 
     const { data: verifyData, error: verifyError } = await supabase
       .from('users')
-      .select('id, email, role, is_active, created_at')
+      .select('id, email, role, status, created_at')
       .eq('id', userId)
       .single()
 
@@ -180,7 +180,7 @@ async function seedProductionAdmin() {
     console.log('====================================================')
     console.log(`Email: ${verifyData.email}`)
     console.log(`Role: ${verifyData.role}`)
-    console.log(`Status: ${verifyData.is_active ? 'active' : 'inactive'}`)
+    console.log(`Status: ${verifyData.status}`)
     console.log(`Created: ${new Date(verifyData.created_at).toLocaleString()}`)
     console.log('')
     console.log('🔑 PRODUCTION LOGIN CREDENTIALS:')

@@ -116,7 +116,7 @@ export async function getUserById(id: string, user?: AdminUser) {
 export async function getUserStats(user?: AdminUser) {
   let query = supabaseAdmin
     .from('users')
-    .select('role, is_active, created_at')
+    .select('role, status, created_at')
 
   // Platform admins can see all users, org admins only their organization
   if (user && !user.isPlatformAdmin) {
@@ -129,9 +129,9 @@ export async function getUserStats(user?: AdminUser) {
 
   const stats = {
     total: data.length,
-    active: data.filter(user => user.is_active).length,
-    inactive: data.filter(user => !user.is_active).length,
-    suspended: data.filter(user => user.is_active === false).length, // Assuming suspended means inactive
+    active: data.filter(user => user.status === 'active').length,
+    inactive: data.filter(user => user.status === 'inactive').length,
+    suspended: data.filter(user => user.status === 'suspended').length,
     byRole: {
       super_admin: data.filter(user => user.role === 'super_admin').length,
       org_admin: data.filter(user => user.role === 'org_admin').length,
