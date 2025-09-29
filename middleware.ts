@@ -47,8 +47,28 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Check if user has admin role (this would need to be enhanced with a database check)
-    // For now, we'll assume the auth check is sufficient
+    // Check if user has admin role by querying the database
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || !profile) {
+      // Redirect to login if profile not found
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
+
+    // Check if user has admin role
+    const isAdmin = profile.role === 'super_admin' || profile.role === 'org_admin'
+    if (!isAdmin) {
+      // Redirect to unauthorized page or login
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
   }
 
   // Redirect authenticated users away from login page

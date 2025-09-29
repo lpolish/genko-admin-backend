@@ -61,7 +61,19 @@ A comprehensive admin backend system for the Genkō Healthcare SaaS platform, bu
    pnpm run seed-admin
    ```
 
-   This creates the first super admin user. Save the generated credentials!
+   This creates the first **Platform Super Admin** user with full system access.
+
+   **⚠️ IMPORTANT: Default Ultra-Powered Credentials**
+   ```
+   Email: admin@genkohealth.com
+   Password: &vFBEGCz5sVwZRt@
+   ```
+
+   **Security Notes:**
+   - This is the **only Platform Super Admin** account with access to ALL organizations and users
+   - **Platform Admins** can see all client data across the entire Genkō platform
+   - **Organization Admins** (clients) can only see their own organization's data
+   - Change these credentials immediately after first login for security
 
 5. **Start the development server**
    ```bash
@@ -70,7 +82,7 @@ A comprehensive admin backend system for the Genkō Healthcare SaaS platform, bu
 
 6. **Access the application**
    - Navigate to [http://localhost:3000/login](http://localhost:3000/login)
-   - Log in with the admin credentials from step 4
+   - Log in with the admin credentials above
    - Access the dashboard at [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
 
 ## Available Scripts
@@ -116,9 +128,39 @@ The application uses Supabase with the following main tables:
 
 ## Authentication & Authorization
 
-- **Super Admin**: Full platform access, can manage all organizations and users
-- **Organization Admin**: Admin access within their organization
+### Security Architecture
+
+The admin backend implements **enterprise-grade multi-tenant data isolation**:
+
+- **Platform Super Admin**: Full system access across ALL organizations and users
+  - Can manage all client organizations
+  - Sees complete platform analytics
+  - Manages billing and subscriptions
+  - Access to audit logs and system settings
+
+- **Organization Admin**: Limited access to their specific organization only
+  - Can only see their own organization's data
+  - Cannot access other clients' information
+  - Manages users within their organization
+
+- **Data Isolation**: Complete separation ensures client data privacy
+  - Platform admins see everything (for Genkō owners)
+  - Organization admins see only their data (for clients)
+  - Zero cross-contamination risk
+
+### User Roles
+
+- **Super Admin** (`admin`): Platform-level administrative access
+- **Organization Admin** (`org_admin`): Organization-level administrative access
 - **Staff/Provider/Patient**: Healthcare-specific roles with limited access
+
+### Security Features
+
+- Role-based access control (RBAC)
+- Multi-tenant data isolation
+- Audit logging for all administrative actions
+- Secure authentication with Supabase Auth
+- Environment-based configuration management
 
 ## Development
 

@@ -2,15 +2,28 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { Building2, Users, CreditCard, TrendingUp } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getPlatformMetrics } from '@/lib/queries/admin'
+import { getCurrentAdminUser, type AdminUser } from '@/lib/auth/admin'
 
 export function MetricsCards() {
+  const [currentUser, setCurrentUser] = useState<AdminUser | null>(null)
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const user = await getCurrentAdminUser()
+      setCurrentUser(user)
+    }
+    loadUser()
+  }, [])
+
   const { data: metrics, isLoading, error } = useQuery({
-    queryKey: ['platform-metrics'],
-    queryFn: getPlatformMetrics,
+    queryKey: ['platform-metrics', currentUser?.id],
+    queryFn: () => getPlatformMetrics(currentUser || undefined),
     refetchInterval: 30000, // Refresh every 30 seconds
+    enabled: !!currentUser, // Only run query when user is loaded
   })
 
   if (isLoading) {

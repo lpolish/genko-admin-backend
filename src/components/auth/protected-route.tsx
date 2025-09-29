@@ -8,7 +8,7 @@ import type { AdminUser } from '@/lib/auth/admin'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  requiredPermission?: 'super_admin' | 'org_admin' | 'read' | 'write'
+  requiredPermission?: 'platform_admin' | 'super_admin' | 'org_admin' | 'read' | 'write'
   fallback?: React.ReactNode
 }
 
@@ -36,6 +36,7 @@ export function ProtectedRoute({
         const hasPermission = requiredPermission === 'read' ||
           (requiredPermission === 'org_admin' && adminUser.isOrgAdmin) ||
           (requiredPermission === 'super_admin' && adminUser.isSuperAdmin) ||
+          (requiredPermission === 'platform_admin' && adminUser.isPlatformAdmin) ||
           (requiredPermission === 'write' && adminUser.isOrgAdmin)
 
         if (!hasPermission) {

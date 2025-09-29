@@ -4,6 +4,7 @@ import type { User } from '@/types/database'
 export interface AdminUser extends User {
   isSuperAdmin: boolean
   isOrgAdmin: boolean
+  isPlatformAdmin: boolean
 }
 
 export async function getCurrentAdminUser(): Promise<AdminUser | null> {
@@ -14,10 +15,10 @@ export async function getCurrentAdminUser(): Promise<AdminUser | null> {
       return null
     }
 
-    // Get user profile with role information
+    // Get user profile with role and organization information
     const { data: profile, error: profileError } = await supabase
       .from('users')
-      .select('*')
+      .select('*, organizations(slug)')
       .eq('id', user.id)
       .single()
 
@@ -25,9 +26,10 @@ export async function getCurrentAdminUser(): Promise<AdminUser | null> {
       return null
     }
 
-    // Check if user has admin role
-    const isSuperAdmin = profile.role === 'super_admin'
+    // Check admin levels
+    const isSuperAdmin = profile.role === 'super_admin' || profile.role === 'admin'
     const isOrgAdmin = profile.role === 'org_admin' || isSuperAdmin
+    const isPlatformAdmin = profile.organizations?.slug === 'platform-admin' || isSuperAdmin
 
     if (!isSuperAdmin && !isOrgAdmin) {
       return null
@@ -37,6 +39,7 @@ export async function getCurrentAdminUser(): Promise<AdminUser | null> {
       ...profile,
       isSuperAdmin,
       isOrgAdmin,
+      isPlatformAdmin,
     }
   } catch (error) {
     console.error('Error getting current admin user:', error)
@@ -73,10 +76,12 @@ export async function signOutAdmin() {
   }
 }
 
-export function hasPermission(user: AdminUser | null, permission: 'super_admin' | 'org_admin' | 'read' | 'write'): boolean {
+export function hasPermission(user: AdminUser | null, permission: 'platform_admin' | 'super_admin' | 'org_admin' | 'read' | 'write'): boolean {
   if (!user) return false
 
   switch (permission) {
+    case 'platform_admin':
+      return user.isPlatformAdmin
     case 'super_admin':
       return user.isSuperAdmin
     case 'org_admin':

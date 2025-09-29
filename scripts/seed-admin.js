@@ -54,57 +54,87 @@ async function seedAdminUser() {
   })
 
   try {
-    // Step 1: Create user in Supabase Auth
-    console.log('1️⃣ Creating user in Supabase Auth...')
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: adminEmail,
-      password: adminPassword,
-      email_confirm: true, // Auto-confirm email for admin user
-      user_metadata: {
-        first_name: 'Super',
-        last_name: 'Admin',
-        role: 'super_admin'
+    // Step 1.5: Create platform organization for admin users
+    console.log('1️⃣ Checking/Creating platform organization...')
+    
+    let platformOrgId
+    const { data: existingOrg } = await supabase
+      .from('organizations')
+      .select('id')
+      .eq('slug', 'platform-admin')
+      .single()
+    
+    if (existingOrg) {
+      platformOrgId = existingOrg.id
+      console.log('✅ Found existing platform organization')
+    } else {
+      const { data: orgData, error: orgError } = await supabase
+        .from('organizations')
+        .insert({
+          name: 'Platform Administration',
+          slug: 'platform-admin',
+          subscription_tier: 'enterprise',
+          subscription_status: 'active',
+          user_limit: 10
+        })
+        .select('id')
+        .single()
+      
+      if (orgError) {
+        throw new Error(`Failed to create platform organization: ${orgError.message}`)
       }
-    })
+      
+      platformOrgId = orgData.id
+      console.log('✅ Platform organization created successfully')
+    }
 
-    if (authError) {
-      if (authError.message.includes('already registered')) {
-        console.log('⚠️  User already exists in Supabase Auth. Checking database record...')
-      } else {
+    // Step 2: Check if user already exists, if not create them
+    console.log('2️⃣ Checking/Creating user in Supabase Auth...')
+    
+    // First check if user exists
+    const { data: usersList, error: listError } = await supabase.auth.admin.listUsers()
+    if (listError) {
+      throw new Error(`Failed to list users: ${listError.message}`)
+    }
+    
+    const existingUser = usersList.users.find(user => user.email === adminEmail)
+    let userId
+    
+    if (existingUser) {
+      userId = existingUser.id
+      console.log('✅ Found existing auth user')
+    } else {
+      // Create new user
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: adminEmail,
+        password: adminPassword,
+        email_confirm: true, // Auto-confirm email for admin user
+        user_metadata: {
+          first_name: 'Super',
+          last_name: 'Admin',
+          role: 'admin'
+        }
+      })
+
+      if (authError) {
         throw new Error(`Failed to create auth user: ${authError.message}`)
       }
-    } else {
+
+      userId = authData.user.id
       console.log('✅ Auth user created successfully')
     }
 
-    const userId = authData?.user?.id
-    if (!userId) {
-      // Try to get existing user
-      const { data: existingUser } = await supabase.auth.admin.getUserByEmail(adminEmail)
-      if (!existingUser.user) {
-        throw new Error('Could not get user ID')
-      }
-      console.log('✅ Found existing auth user')
-    }
-
-    // Step 2: Create/update user record in database
-    console.log('2️⃣ Creating/updating user record in database...')
+    // Step 3: Create/update user record in database
+    console.log('3️⃣ Creating/updating user record in database...')
 
     const userData = {
       id: userId,
+      organization_id: platformOrgId,
       email: adminEmail,
       first_name: 'Super',
       last_name: 'Admin',
-      role: 'super_admin',
-      status: 'active',
-      preferences: {
-        theme: 'light',
-        notifications: {
-          email: true,
-          security: true,
-          system: true
-        }
-      }
+      role: 'admin',
+      is_active: true
     }
 
     const { data: dbData, error: dbError } = await supabase
@@ -121,12 +151,12 @@ async function seedAdminUser() {
 
     console.log('✅ Database user record created/updated successfully')
 
-    // Step 3: Verify the user was created correctly
-    console.log('3️⃣ Verifying admin user setup...')
+    // Step 4: Verify the user was created correctly
+    console.log('4️⃣ Verifying admin user setup...')
 
     const { data: verifyData, error: verifyError } = await supabase
       .from('users')
-      .select('id, email, role, status, created_at')
+      .select('id, email, role, is_active, created_at')
       .eq('id', userId)
       .single()
 
@@ -140,7 +170,7 @@ async function seedAdminUser() {
     console.log('=====================================')
     console.log(`Email: ${verifyData.email}`)
     console.log(`Role: ${verifyData.role}`)
-    console.log(`Status: ${verifyData.status}`)
+    console.log(`Status: ${verifyData.is_active ? 'active' : 'inactive'}`)
     console.log(`Created: ${new Date(verifyData.created_at).toLocaleString()}`)
     console.log('')
     console.log('🔑 Login Credentials:')
