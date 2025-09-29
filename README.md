@@ -180,12 +180,62 @@ See `.env.example` for all required environment variables. Never commit `.env.lo
 
 ## Deployment
 
-1. Build the application:
+### Production Setup
+
+1. **Deploy to Vercel** (or your preferred platform)
+   ```bash
+   pnpm run build
+   # Deploy the .next folder and required files
+   ```
+
+2. **Configure Production Environment Variables in Vercel**
+   - `NEXT_PUBLIC_SUPABASE_URL`: Your production Supabase project URL
+   - `SUPABASE_SERVICE_ROLE_KEY`: Your production Supabase service role key
+   - Get these from: https://supabase.com/dashboard/project/YOUR_PROJECT/settings/api
+
+3. **Seed Production Super Admin User**
+   
+   **⚠️ IMPORTANT**: Never run database seeding scripts in serverless environments like Vercel. Instead, seed the production database locally:
+   
+   ```bash
+   # Option 1: Using environment variables
+   export PRODUCTION_SUPABASE_URL="https://your-project.supabase.co"
+   export PRODUCTION_SUPABASE_SERVICE_KEY="your-service-role-key"
+   pnpm run seed-production-admin
+   
+   # Option 2: Using command line arguments
+   pnpm run seed-production-admin "https://your-project.supabase.co" "your-service-role-key"
+   
+   # Option 3: Using the script directly
+   node scripts/seed-production-admin.js "https://your-project.supabase.co" "your-service-role-key"
+   ```
+   
+   This creates the super admin user with the documented credentials in your production database.
+
+4. **Verify Deployment**
+   - Access your Vercel deployment URL
+   - Navigate to `/login`
+   - Log in with the super admin credentials
+   - Access the dashboard at `/dashboard`
+
+### Local Development Setup
+
+For local development with a separate Supabase project:
+
+1. **Build the application**:
    ```bash
    pnpm run build
    ```
 
-2. The application can be deployed to Vercel, Netlify, or any platform supporting Next.js.
+2. **Seed local admin user**:
+   ```bash
+   pnpm run seed-admin
+   ```
+
+3. **Start development server**:
+   ```bash
+   pnpm run dev
+   ```
 
 ## Contributing
 

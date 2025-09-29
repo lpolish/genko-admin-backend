@@ -7,7 +7,8 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "seedadmin": "node scripts/seed-admin.js"
+    "seed-admin": "node scripts/seed-admin.js",
+    "seed-production-admin": "node scripts/seed-production-admin.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
