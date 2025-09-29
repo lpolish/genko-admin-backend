@@ -123,15 +123,36 @@ export async function getUserStats(user?: AdminUser) {
     query = query.eq('organization_id', user.organization_id)
   }
 
-  const { data, error } = await query
+  let { data, error } = await query
 
-  if (error) throw error
+  if (error) {
+    // If status field doesn't exist, try is_active
+    if (error.message.includes('status')) {
+      query = supabaseAdmin
+        .from('users')
+        .select('role, is_active, created_at')
+
+      if (user && !user.isPlatformAdmin) {
+        query = query.eq('organization_id', user.organization_id)
+      }
+
+      const retryResult = await query
+      if (retryResult.error) throw retryResult.error
+      data = retryResult.data
+    } else {
+      throw error
+    }
+  }
+
+  if (!data) {
+    throw new Error('No user data returned')
+  }
 
   const stats = {
     total: data.length,
-    active: data.filter(user => user.status === 'active').length,
-    inactive: data.filter(user => user.status === 'inactive').length,
-    suspended: data.filter(user => user.status === 'suspended').length,
+    active: data.filter(user => (user as any).status === 'active' || (user as any).is_active === true).length,
+    inactive: data.filter(user => (user as any).status === 'inactive' || (user as any).is_active === false).length,
+    suspended: data.filter(user => (user as any).status === 'suspended').length,
     byRole: {
       super_admin: data.filter(user => user.role === 'super_admin').length,
       org_admin: data.filter(user => user.role === 'org_admin').length,

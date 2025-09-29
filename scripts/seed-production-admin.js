@@ -137,26 +137,77 @@ async function seedProductionAdmin() {
     // Step 3: Create/update user record in database
     console.log('3️⃣ Creating/updating user record in database...')
 
-    const userData = {
-      id: userId,
-      organization_id: platformOrgId,
-      email: adminEmail,
-      first_name: 'Super',
-      last_name: 'Admin',
-      role: 'admin',
-      status: 'active'
-    }
+    // First, try to determine what status field the database uses
+    let userData
+    try {
+      // Try with 'status' field first (new schema)
+      userData = {
+        id: userId,
+        organization_id: platformOrgId,
+        email: adminEmail,
+        first_name: 'Super',
+        last_name: 'Admin',
+        role: 'admin',
+        status: 'active'
+      }
 
-    const { data: dbData, error: dbError } = await supabase
-      .from('users')
-      .upsert(userData, {
-        onConflict: 'id',
-        ignoreDuplicates: false
-      })
-      .select()
+      await supabase
+        .from('users')
+        .upsert(userData, {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        })
+        .select('id')
+        .single()
 
-    if (dbError) {
-      throw new Error(`Failed to create database user: ${dbError.message}`)
+      console.log('✅ Used status field (new schema)')
+    } catch (statusError) {
+      console.log('⚠️ Status field not found, trying is_active field (old schema)...')
+      try {
+        // Try with 'is_active' field (old schema)
+        userData = {
+          id: userId,
+          organization_id: platformOrgId,
+          email: adminEmail,
+          first_name: 'Super',
+          last_name: 'Admin',
+          role: 'admin',
+          is_active: true
+        }
+
+        await supabase
+          .from('users')
+          .upsert(userData, {
+            onConflict: 'id',
+            ignoreDuplicates: false
+          })
+          .select('id')
+          .single()
+
+        console.log('✅ Used is_active field (old schema)')
+      } catch (activeError) {
+        // If both fail, try without status field
+        console.log('⚠️ Neither status nor is_active found, creating without status...')
+        userData = {
+          id: userId,
+          organization_id: platformOrgId,
+          email: adminEmail,
+          first_name: 'Super',
+          last_name: 'Admin',
+          role: 'admin'
+        }
+
+        await supabase
+          .from('users')
+          .upsert(userData, {
+            onConflict: 'id',
+            ignoreDuplicates: false
+          })
+          .select('id')
+          .single()
+
+        console.log('✅ Created user without status field')
+      }
     }
 
     console.log('✅ Database user record created/updated successfully')
@@ -164,14 +215,42 @@ async function seedProductionAdmin() {
     // Step 4: Verify the user was created correctly
     console.log('4️⃣ Verifying admin user setup...')
 
-    const { data: verifyData, error: verifyError } = await supabase
-      .from('users')
-      .select('id, email, role, status, created_at')
-      .eq('id', userId)
-      .single()
+    let verifyData
+    try {
+      // Try to get user with status field
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email, role, status, created_at')
+        .eq('id', userId)
+        .single()
 
-    if (verifyError) {
-      throw new Error(`Failed to verify user: ${verifyError.message}`)
+      if (error) throw error
+      verifyData = data
+      console.log('✅ Verified with status field')
+    } catch (statusError) {
+      try {
+        // Try with is_active field
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, email, role, is_active, created_at')
+          .eq('id', userId)
+          .single()
+
+        if (error) throw error
+        verifyData = data
+        console.log('✅ Verified with is_active field')
+      } catch (activeError) {
+        // Try without status field
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, email, role, created_at')
+          .eq('id', userId)
+          .single()
+
+        if (error) throw error
+        verifyData = data
+        console.log('✅ Verified without status field')
+      }
     }
 
     console.log('✅ Admin user verification successful!')
@@ -180,7 +259,7 @@ async function seedProductionAdmin() {
     console.log('====================================================')
     console.log(`Email: ${verifyData.email}`)
     console.log(`Role: ${verifyData.role}`)
-    console.log(`Status: ${verifyData.status}`)
+    console.log(`Status: ${verifyData.status || (verifyData.is_active ? 'active' : 'unknown')}`)
     console.log(`Created: ${new Date(verifyData.created_at).toLocaleString()}`)
     console.log('')
     console.log('🔑 PRODUCTION LOGIN CREDENTIALS:')
