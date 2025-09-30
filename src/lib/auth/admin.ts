@@ -22,12 +22,7 @@ export async function getCurrentAdminUser(): Promise<AdminUser | null> {
     // Get user profile with role and organization information
     const { data: profile, error: profileError } = await supabase
       .from('users')
-      .select(`
-        *,
-        organizations (
-          slug
-        )
-      `)
+      .select('*')
       .eq('id', user.id)
       .single()
 
@@ -37,12 +32,26 @@ export async function getCurrentAdminUser(): Promise<AdminUser | null> {
       return null
     }
 
-    console.log('Profile loaded:', { role: profile.role, is_active: profile.is_active, organization: profile.organizations })
+    // Get organization separately to avoid foreign key issues
+    let organization = null
+    if (profile.organization_id) {
+      const { data: orgData } = await supabase
+        .from('organizations')
+        .select('slug')
+        .eq('id', profile.organization_id)
+        .single()
+
+      if (orgData) {
+        organization = orgData
+      }
+    }
+
+    console.log('Profile loaded:', { role: profile.role, is_active: profile.is_active, organization })
 
     // Check admin levels
     const isSuperAdmin = profile.role === 'super_admin' || profile.role === 'admin'
     const isOrgAdmin = profile.role === 'org_admin' || isSuperAdmin
-    const isPlatformAdmin = profile.organizations?.slug === 'platform-admin' || isSuperAdmin
+    const isPlatformAdmin = organization?.slug === 'platform-admin' || isSuperAdmin
 
     console.log('Admin checks:', { isSuperAdmin, isOrgAdmin, isPlatformAdmin })
 
