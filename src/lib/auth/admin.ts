@@ -12,12 +12,8 @@ export async function getCurrentAdminUser(): Promise<AdminUser | null> {
     const { data: { user }, error } = await supabase.auth.getUser()
 
     if (error || !user) {
-      console.error('Auth error or no user:', error)
       return null
     }
-
-    console.log('Auth user ID:', user.id)
-    console.log('Auth user email:', user.email)
 
     // Get user profile with role and organization information
     const { data: profile, error: profileError } = await supabase
@@ -26,14 +22,9 @@ export async function getCurrentAdminUser(): Promise<AdminUser | null> {
       .eq('id', user.id)
       .single()
 
-    console.log('Profile query result:', { profile, profileError })
-
     if (profileError || !profile) {
-      console.error('Profile query failed:', profileError)
       return null
     }
-
-    console.log('User profile:', profile)
 
     // Get organization separately to avoid foreign key issues
     let organization = null
@@ -44,24 +35,17 @@ export async function getCurrentAdminUser(): Promise<AdminUser | null> {
         .eq('id', profile.organization_id)
         .single()
 
-      console.log('Organization query result:', { orgData, orgError })
-
       if (orgData) {
         organization = orgData
       }
     }
-
-    console.log('Organization data:', organization)
 
     // Check admin levels
     const isSuperAdmin = profile.role === 'super_admin' || profile.role === 'admin'
     const isOrgAdmin = profile.role === 'org_admin' || isSuperAdmin
     const isPlatformAdmin = organization?.slug === 'platform-admin' || isSuperAdmin
 
-    console.log('Admin checks:', { isSuperAdmin, isOrgAdmin, isPlatformAdmin, role: profile.role, orgSlug: organization?.slug })
-
     if (!isSuperAdmin && !isOrgAdmin) {
-      console.error('User does not have admin privileges')
       return null
     }
 
@@ -72,7 +56,6 @@ export async function getCurrentAdminUser(): Promise<AdminUser | null> {
       isPlatformAdmin,
     }
   } catch (error) {
-    console.error('Unexpected error:', error)
     return null
   }
 }
