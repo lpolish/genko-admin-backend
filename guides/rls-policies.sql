@@ -14,29 +14,47 @@ DROP POLICY IF EXISTS "Users can view own organization" ON organizations;
 DROP POLICY IF EXISTS "Platform admins can view all organizations" ON organizations;
 DROP POLICY IF EXISTS "Org admins can view their organization" ON organizations;
 
--- Users table policies
+-- Users table policies - Organization-scoped for SaaS security
 CREATE POLICY "Users can view own profile" ON users
 FOR SELECT USING (auth.uid() = id);
 
-CREATE POLICY "Admins can view all users" ON users
+CREATE POLICY "Users can view organization members" ON users
+FOR SELECT USING (
+  organization_id IN (
+    SELECT organization_id FROM users
+    WHERE id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can update organization members" ON users
+FOR UPDATE USING (
+  organization_id IN (
+    SELECT organization_id FROM users
+    WHERE id = auth.uid()
+  )
+);
+
+CREATE POLICY "Platform admins can view all users" ON users
 FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM users u
+    JOIN organizations o ON u.organization_id = o.id
     WHERE u.id = auth.uid()
-    AND u.role IN ('admin', 'super_admin', 'org_admin')
+    AND o.slug = 'platform-admin'
   )
 );
 
-CREATE POLICY "Admins can update users" ON users
+CREATE POLICY "Platform admins can update all users" ON users
 FOR UPDATE USING (
   EXISTS (
     SELECT 1 FROM users u
+    JOIN organizations o ON u.organization_id = o.id
     WHERE u.id = auth.uid()
-    AND u.role IN ('admin', 'super_admin')
+    AND o.slug = 'platform-admin'
   )
 );
 
--- Organizations table policies
+-- Organizations table policies - Organization-scoped for SaaS security
 CREATE POLICY "Users can view own organization" ON organizations
 FOR SELECT USING (
   id IN (
@@ -49,38 +67,51 @@ CREATE POLICY "Platform admins can view all organizations" ON organizations
 FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM users u
+    JOIN organizations o ON u.organization_id = o.id
     WHERE u.id = auth.uid()
-    AND u.role IN ('admin', 'super_admin')
-    AND u.organization_id IN (
-      SELECT id FROM organizations WHERE slug = 'platform-admin'
+    AND o.slug = 'platform-admin'
+  )
+);
+
+-- Audit logs policies - Organization-scoped for SaaS security
+CREATE POLICY "Users can view organization audit logs" ON audit_logs
+FOR SELECT USING (
+  user_id IN (
+    SELECT id FROM users
+    WHERE organization_id IN (
+      SELECT organization_id FROM users
+      WHERE id = auth.uid()
     )
   )
 );
 
-CREATE POLICY "Org admins can view their organization" ON organizations
-FOR SELECT USING (
-  id IN (
-    SELECT organization_id FROM users
-    WHERE id = auth.uid()
-    AND role = 'org_admin'
+CREATE POLICY "Users can insert organization audit logs" ON audit_logs
+FOR INSERT WITH CHECK (
+  user_id IN (
+    SELECT id FROM users
+    WHERE organization_id IN (
+      SELECT organization_id FROM users
+      WHERE id = auth.uid()
+    )
   )
 );
 
--- Audit logs policies (admins only)
-CREATE POLICY "Admins can view audit logs" ON audit_logs
+CREATE POLICY "Platform admins can view all audit logs" ON audit_logs
 FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM users u
+    JOIN organizations o ON u.organization_id = o.id
     WHERE u.id = auth.uid()
-    AND u.role IN ('admin', 'super_admin', 'org_admin')
+    AND o.slug = 'platform-admin'
   )
 );
 
-CREATE POLICY "Admins can insert audit logs" ON audit_logs
+CREATE POLICY "Platform admins can insert all audit logs" ON audit_logs
 FOR INSERT WITH CHECK (
   EXISTS (
     SELECT 1 FROM users u
+    JOIN organizations o ON u.organization_id = o.id
     WHERE u.id = auth.uid()
-    AND u.role IN ('admin', 'super_admin', 'org_admin')
+    AND o.slug = 'platform-admin'
   )
 );

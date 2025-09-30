@@ -2,62 +2,80 @@
 
 ## Overview
 
-The Genkō admin backend uses Supabase PostgreSQL with Row Level Security (RLS) policies to ensure secure data access.
+The Genkō admin backend uses Supabase PostgreSQL with **organization-scoped Row Level Security (RLS)** policies for multi-tenant SaaS security. Each organization's admin users can only access data within their own organization, preventing cross-company data leakage.
+
+## Security Model
+
+### Multi-Tenant Architecture
+- **Organization-scoped access**: Users can only see data from their own organization
+- **Platform admin override**: Users in the 'platform-admin' organization have global access
+- **SaaS-first design**: All users are organization admins within their company context
+
+### Access Levels
+1. **Platform Admin**: Global access (users in 'platform-admin' organization)
+2. **Organization Admin**: Access to their organization's data only
+3. **Regular User**: Access to their own profile (not implemented in current SaaS model)
 
 ## Tables
 
 ### users
-- Stores user profiles with roles and organization associations
+- Stores user profiles with organization associations
 - Fields: id, email, role, status, organization_id, created_at, updated_at
+- **Security**: Users can only see other users in their same organization
 
 ### organizations
 - Stores organization information
 - Fields: id, slug, name, subscription_tier, subscription_status, created_at
+- **Security**: Users can only see their own organization (except platform admins)
 
 ### audit_logs
 - Stores audit trails for admin actions
 - Fields: id, user_id, action, resource, details, created_at
+- **Security**: Users can only see audit logs from their organization
 
 ## RLS Policies
 
-### Users Table Policies
+### Users Table Policies - Organization-Scoped
 
 ```sql
--- Enable RLS
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-
--- Allow users to read their own profile
+-- Users can view their own profile
 CREATE POLICY "Users can view own profile" ON users
 FOR SELECT USING (auth.uid() = id);
 
--- Allow admins to view all users
-CREATE POLICY "Admins can view all users" ON users
+-- Users can view other users in their organization (SaaS security)
+CREATE POLICY "Users can view organization members" ON users
 FOR SELECT USING (
-  EXISTS (
-    SELECT 1 FROM users u
-    WHERE u.id = auth.uid()
-    AND u.role IN ('admin', 'super_admin', 'org_admin')
+  organization_id IN (
+    SELECT organization_id FROM users
+    WHERE id = auth.uid()
   )
 );
 
--- Allow admins to update users
-CREATE POLICY "Admins can update users" ON users
+-- Users can update other users in their organization
+CREATE POLICY "Users can update organization members" ON users
 FOR UPDATE USING (
+  organization_id IN (
+    SELECT organization_id FROM users
+    WHERE id = auth.uid()
+  )
+);
+
+-- Platform admins can view all users globally
+CREATE POLICY "Platform admins can view all users" ON users
+FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM users u
+    JOIN organizations o ON u.organization_id = o.id
     WHERE u.id = auth.uid()
-    AND u.role IN ('admin', 'super_admin')
+    AND o.slug = 'platform-admin'
   )
 );
 ```
 
-### Organizations Table Policies
+### Organizations Table Policies - Organization-Scoped
 
 ```sql
--- Enable RLS
-ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
-
--- Allow users to view their own organization
+-- Users can view their own organization
 CREATE POLICY "Users can view own organization" ON organizations
 FOR SELECT USING (
   id IN (
@@ -66,7 +84,7 @@ FOR SELECT USING (
   )
 );
 
--- Allow platform admins to view all organizations
+-- Platform admins can view all organizations
 CREATE POLICY "Platform admins can view all organizations" ON organizations
 FOR SELECT USING (
   EXISTS (
@@ -74,17 +92,33 @@ FOR SELECT USING (
     JOIN organizations o ON u.organization_id = o.id
     WHERE u.id = auth.uid()
     AND o.slug = 'platform-admin'
-    AND u.role IN ('admin', 'super_admin')
+  )
+);
+```
+
+### Audit Logs Policies - Organization-Scoped
+
+```sql
+-- Users can view audit logs from their organization
+CREATE POLICY "Users can view organization audit logs" ON audit_logs
+FOR SELECT USING (
+  user_id IN (
+    SELECT id FROM users
+    WHERE organization_id IN (
+      SELECT organization_id FROM users
+      WHERE id = auth.uid()
+    )
   )
 );
 
--- Allow org admins to view their organization
-CREATE POLICY "Org admins can view their organization" ON organizations
+-- Platform admins can view all audit logs
+CREATE POLICY "Platform admins can view all audit logs" ON audit_logs
 FOR SELECT USING (
-  id IN (
-    SELECT organization_id FROM users
-    WHERE id = auth.uid()
-    AND role = 'org_admin'
+  EXISTS (
+    SELECT 1 FROM users u
+    JOIN organizations o ON u.organization_id = o.id
+    WHERE u.id = auth.uid()
+    AND o.slug = 'platform-admin'
   )
 );
 ```

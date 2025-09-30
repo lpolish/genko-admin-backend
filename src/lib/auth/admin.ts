@@ -40,12 +40,12 @@ export async function getCurrentAdminUser(): Promise<AdminUser | null> {
       }
     }
 
-    // Check admin levels
-    const isSuperAdmin = profile.role === 'super_admin' || profile.role === 'admin'
-    const isOrgAdmin = profile.role === 'org_admin' || isSuperAdmin
-    const isPlatformAdmin = organization?.slug === 'platform-admin' || isSuperAdmin
+    // Check admin levels - Organization-scoped for SaaS security
+    const isOrgAdmin = !!profile.organization_id // All users with organization are org admins in SaaS
+    const isPlatformAdmin = organization?.slug === 'platform-admin' // Only platform-admin org users have global access
+    const isSuperAdmin = profile.role === 'super_admin' || isPlatformAdmin // Legacy super_admin role or platform admin
 
-    if (!isSuperAdmin && !isOrgAdmin) {
+    if (!isOrgAdmin) {
       return null
     }
 
@@ -98,11 +98,11 @@ export function hasPermission(user: AdminUser | null, permission: 'platform_admi
     case 'super_admin':
       return user.isSuperAdmin
     case 'org_admin':
-      return user.isOrgAdmin
+      return user.isOrgAdmin // All SaaS users are org admins
     case 'write':
-      return user.isOrgAdmin // Both super and org admins can write
+      return user.isOrgAdmin // Org admins can write within their organization
     case 'read':
-      return true // All admins can read
+      return user.isOrgAdmin // All org admins can read
     default:
       return false
   }
