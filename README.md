@@ -65,8 +65,8 @@ A comprehensive admin backend system for the Genkō Healthcare SaaS platform, bu
 
    **⚠️ IMPORTANT: Default Ultra-Powered Credentials**
    ```
-   Email: admin@genkohealth.com
-   Password: &vFBEGCz5sVwZRt@
+   Email: admin@getgenko.com
+   Password: 97B2AD6D1FF7C02B734CBE53C6E171D236a9f5f9e1d12bf3
    ```
 
    **Security Notes:**

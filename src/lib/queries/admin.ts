@@ -123,7 +123,8 @@ export async function getUserStats(user?: AdminUser) {
     query = query.eq('organization_id', user.organization_id)
   }
 
-  let { data, error } = await query
+  const { data: initialData, error } = await query
+  let data = initialData
 
   if (error) {
     // If status field doesn't exist, try is_active
@@ -148,11 +149,19 @@ export async function getUserStats(user?: AdminUser) {
     throw new Error('No user data returned')
   }
 
+  // Type for user data that can have either status or is_active field
+  type UserWithStatus = {
+    role: string
+    status?: 'active' | 'inactive' | 'suspended'
+    is_active?: boolean
+    created_at: string
+  }
+
   const stats = {
     total: data.length,
-    active: data.filter(user => (user as any).status === 'active' || (user as any).is_active === true).length,
-    inactive: data.filter(user => (user as any).status === 'inactive' || (user as any).is_active === false).length,
-    suspended: data.filter(user => (user as any).status === 'suspended').length,
+    active: data.filter((user: UserWithStatus) => user.status === 'active' || user.is_active === true).length,
+    inactive: data.filter((user: UserWithStatus) => user.status === 'inactive' || user.is_active === false).length,
+    suspended: data.filter((user: UserWithStatus) => user.status === 'suspended').length,
     byRole: {
       super_admin: data.filter(user => user.role === 'super_admin').length,
       org_admin: data.filter(user => user.role === 'org_admin').length,
